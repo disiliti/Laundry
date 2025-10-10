@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Aplikasi Laundry Modern v2.10 (Fitur Cleanup)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsrsasign/lib/jsrsasign.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .nota-mono { font-family: 'Fira Code', 'Courier New', monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; color: #374151; }
+        .card { background: #ffffff; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .input-field { border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.75rem; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
+        .input-field:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; transition: all 0.3s ease-in-out; display: inline-flex; align-items: center; gap: 0.5rem; justify-content: center; }
+        .btn-primary { background-image: linear-gradient(to right, #4f46e5, #6366f1); color: white; padding-top: 0.875rem; padding-bottom: 0.875rem; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -2px rgba(79, 70, 229, 0.1); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.25), 0 4px 6px -4px rgba(79, 70, 229, 0.15); }
+        .btn-secondary { background-color: #e0e7ff; color: #4338ca; }
+        .btn-success { background-color: #d1fae5; color: #065f46; }
+        .btn-danger { background-color: #fee2e2; color: #991b1b; }
+        .btn-warning { background-color: #fef3c7; color: #92400e; }
+        .btn-disabled { background-image: none; background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+        .btn-disabled:hover { transform: none; box-shadow: none; }
+        .modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; }
+        .modal-overlay.show { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal-overlay.show .modal-content { transform: scale(1); }
+        #toast-container { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast { display: flex; align-items: center; gap: 1rem; padding: 1rem; border-radius: 0.75rem; color: white; min-width: 320px; max-width: 400px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05); transform: translateX(120%); opacity: 0; transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); overflow: hidden; }
+        .toast.show { transform: translateX(0); opacity: 1; }
+        .toast i { font-size: 1.5rem; } .toast span { font-weight: 500; }
+        .toast-progress { position: absolute; bottom: 0; left: 0; height: 4px; background-color: rgba(255,255,255,0.5); width: 100%; animation: toast-progress 3.5s linear forwards; }
+        .toast-success { background-color: #10b981; } .toast-error { background-color: #ef4444; } .toast-info { background-color: #3b82f6; }
+        @keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
+        @keyframes pulse-icon { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+        .premium-icon-pulse { animation: pulse-icon 1.5s ease-in-out infinite; }
+        #backup-indicator { position: absolute; top: 6px; right: 4px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white; animation: pulse 2s infinite; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+</head>
+<body class="py-8 px-4 bg-slate-100">
+    
+    <div id="toast-container"></div>
+    <div id="donationToast" class="fixed bottom-5 right-5 w-80 bg-white rounded-xl shadow-2xl p-5 border transition-transform transform translate-y-[150%] duration-500 z-[99]">
+        <button onclick="this.parentElement.style.transform = 'translateY(150%)'" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
+        <div class="flex items-center gap-3 mb-4"><div class="bg-gradient-to-tr from-indigo-500 to-purple-500 text-white rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0"><i class="fas fa-rocket text-xl"></i></div><div><p class="font-bold text-gray-800">Aktivasi Fitur Premium!</p><p class="text-sm text-gray-600">Buka semua fitur dan dukung developer.</p></div></div>
+        <button onclick="kirimApresiasiWA()" class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:from-green-600 hover:to-teal-600 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"><i class="fab fa-whatsapp"></i> Minta Aktivasi via WA</button>
+    </div>
+
+    <header class="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-40 mx-4 md:mx-auto md:max-w-5xl mt-4 p-3 flex justify-between items-center rounded-lg shadow-sm">
+        <h1 class="text-xl font-bold flex items-center gap-3 text-gray-800"><i class="fas fa-tshirt text-indigo-600"></i><span id="namaLaundryHeader">Aplikasi Laundry</span></h1>
+        <div class="flex items-center gap-1 md:gap-2">
+            <button type="button" id="showRekapButton" class="text-gray-600 hover:text-indigo-800 flex items-center justify-center w-10 h-10 rounded-full hover:bg-indigo-100"><i class="fas fa-chart-line fa-lg"></i></button>
+            <button type="button" id="showDbButton" class="font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-indigo-100"><i class="fas fa-search"></i><span class="hidden md:inline">Cari Order</span></button>
+            <div class="relative"><button type="button" id="showSettingsButton" class="text-gray-600 hover:text-indigo-800 flex items-center justify-center w-10 h-10 rounded-full hover:bg-indigo-100" title="Pengaturan"><i class="fas fa-cog fa-lg"></i></button><span id="backup-indicator" class="hidden"></span></div>
+        </div>
+    </header>
+
+    <main class="mt-24"><div class="max-w-5xl mx-auto flex flex-col lg:flex-row gap-8"><div class="w-full lg:w-3/5"><div class="card p-6"><h2 class="text-2xl font-bold mb-6 flex items-center gap-3 text-gray-700"><i class="fas fa-edit text-indigo-500"></i> <span id="formTitle">Input Order Baru</span></h2><div class="space-y-4"><input id="iOrderId" type="hidden"> <input id="iNamaPelanggan" class="input-field w-full" placeholder="Nama Pelanggan"><input id="iNoHp" class="input-field w-full" placeholder="No. WhatsApp"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input id="iTanggalMasuk" class="input-field w-full" type="datetime-local"><input id="iTanggalSelesai" class="input-field w-full" type="date"></div></div><div class="mt-6"><h3 class="font-semibold text-lg mb-3 text-gray-600">Rincian Layanan</h3><div id="listLayanan" class="space-y-4"></div><button type="button" id="tambahLayananButton" class="mt-4 btn btn-secondary w-full"><i class="fas fa-plus"></i> Tambah Layanan</button></div><div class="mt-6 border-t pt-6 space-y-4"><div class="flex items-center justify-between"><label for="iDiskon" class="font-medium text-gray-700">Diskon (Rp)</label><input id="iDiskon" type="number" class="input-field w-40 text-right" placeholder="0"></div><div class="flex items-center justify-between"><label for="iExpress" class="font-medium text-gray-700 flex items-center gap-2"><input type="checkbox" id="iExpress" class="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"> Layanan Express</label><span id="expressFeeText" class="font-semibold text-gray-800"></span></div></div><div class="mt-6"><button type="button" id="simpanButton" class="w-full btn btn-primary"><i class="fas fa-save"></i> Simpan & Kirim Nota</button><button type="button" id="batalEditButton" class="hidden w-full btn btn-secondary bg-gray-200 text-gray-800 mt-2"><i class="fas fa-times"></i> Batal Edit</button></div></div></div><div class="w-full lg:w-2/5"><div class="sticky top-28"><h2 class="text-xl font-bold mb-3 flex items-center gap-3 text-gray-700"><i class="fas fa-receipt text-indigo-500"></i> Preview Nota</h2><div class="border rounded-xl p-4 bg-white"><pre id="previewStruk" class="nota-mono"></pre></div></div></div></div></main>
+    
+    <div id="databaseView" class="modal-overlay"><div class="modal-content bg-slate-50 rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col"><div class="p-4 border-b flex justify-between items-center"><h2 id="dbModalTitle" class="text-xl font-bold text-gray-800">Cari Order Pelanggan</h2><button id="closeDbButton" class="text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button></div><div id="customerListContainer" class="flex flex-col p-4 overflow-y-auto"><input id="searchCustomer" type="text" class="input-field w-full mb-4" placeholder="Cari berdasarkan Nama atau Kode Pengambilan..."><div id="customerList" class="space-y-2"></div></div><div id="orderDetailsContainer" class="hidden flex-col p-4 overflow-y-auto"><button id="backToCustomerList" class="mb-4 self-start bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 flex items-center gap-2"><i class="fas fa-arrow-left"></i>Kembali</button><div id="orderDetails" class="space-y-4"></div></div></div></div>
+    <div id="settingsView" class="modal-overlay"><div class="modal-content bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]"><div class="p-5 border-b flex-shrink-0 flex justify-between items-center"><h2 class="text-xl font-bold text-gray-800">Pengaturan</h2><button id="closeSettingsButton" class="text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button></div><div class="p-5 space-y-4 overflow-y-auto"><div><label for="sNamaLaundry" class="font-medium text-gray-700">Nama Laundry</label><input id="sNamaLaundry" type="text" class="input-field w-full mt-1"></div><div><label for="sAlamatLaundry" class="font-medium text-gray-700">Alamat Laundry</label><input id="sAlamatLaundry" type="text" class="input-field w-full mt-1"></div><div><label for="sWaLaundry" class="font-medium text-gray-700">Nomor WhatsApp</label><input id="sWaLaundry" type="text" class="input-field w-full mt-1"></div><hr class="my-4"><div class="space-y-3"><h3 class="text-lg font-semibold text-gray-700">Manajemen Layanan</h3><p class="text-sm text-gray-500">Atur layanan yang tersedia di laundry Anda.</p><div id="layananEditorContainer" class="space-y-3"></div><button id="tambahLayananEditor" class="btn btn-secondary w-full !py-2"><i class="fas fa-plus"></i>Tambah Baris Layanan</button></div><hr class="my-4"><div class="space-y-3"><h3 class="text-lg font-semibold text-gray-700">Lisensi Aplikasi</h3><p class="text-sm text-gray-500">ID Aplikasi Anda: <code id="installationId" class="font-mono bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-md cursor-pointer" title="Klik untuk menyalin"></code></p><div id="licenseStatus" class="p-3 rounded-lg text-center text-sm"></div><button id="extendLicenseButton" class="hidden btn btn-success w-full"><i class="fas fa-calendar-check"></i>Perpanjang Lisensi</button><div id="licenseArea"><label for="licenseKey" class="font-medium text-gray-700">Kunci Lisensi</label><div class="flex gap-2 mt-1"><input id="licenseKey" class="input-field w-full" placeholder="Masukkan kunci aktivasi..."><button id="activateLicenseButton" class="btn btn-primary !py-2">Aktifkan</button></div></div></div><hr class="my-4"><div class="space-y-3"><h3 class="text-lg font-semibold text-gray-700">Manajemen Data</h3><p class="text-sm text-gray-500">Hapus data order lama yang sudah selesai untuk menjaga performa aplikasi.</p><button id="cleanupOrdersButton" class="w-full btn btn-danger"><i class="fas fa-broom"></i>Hapus Order Selesai</button></div><hr class="my-4"><div class="space-y-3"><h3 class="text-lg font-semibold text-gray-700">Backup & Restore Data</h3><p class="text-sm text-gray-500">Simpan semua data order, rekap, dan pengaturan.</p><div class="flex gap-4"><button id="backupButton" class="w-full btn btn-secondary bg-blue-100 text-blue-800"><i class="fas fa-download"></i>Backup Data</button><button id="restoreButton" class="w-full btn btn-secondary bg-green-100 text-green-800"><i class="fas fa-upload"></i>Restore Data</button><input type="file" id="restoreFile" class="hidden" accept=".json"></div></div></div><div class="p-5 bg-gray-50 rounded-b-2xl mt-auto flex-shrink-0"><button id="saveSettingsButton" class="w-full btn btn-primary"><i class="fas fa-save"></i> Simpan Semua Perubahan</button></div></div></div>
+    <div id="rekapView" class="modal-overlay"><div class="modal-content bg-slate-50 rounded-2xl shadow-xl w-full max-w-6xl h-[90vh] flex flex-col"><div class="p-4 border-b flex-shrink-0 flex justify-between items-center"><h2 class="text-xl font-bold text-gray-800 flex items-center gap-3"><i class="fas fa-wallet text-indigo-500"></i> Rekap Keuangan</h2><button id="closeRekapButton" class="text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button></div><div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 md:overflow-y-hidden"><div class="lg:col-span-1 flex flex-col gap-6 overflow-y-auto"><div class="card p-5 flex-shrink-0"><h3 id="formTransaksiTitle" class="font-bold text-lg mb-3">Tambah Transaksi</h3><form id="formTransaksi" class="space-y-3"><input id="transaksiId" type="hidden"><input id="transaksiTanggal" type="date" class="input-field w-full"><input id="transaksiKeterangan" type="text" class="input-field w-full" placeholder="Keterangan"><select id="transaksiKategori" class="input-field w-full hidden"><option value="Lainnya">Lainnya</option><option value="Deterjen & Pewangi">Deterjen & Pewangi</option><option value="Listrik & Air">Listrik & Air</option><option value="Gaji Karyawan">Gaji Karyawan</option><option value="Sewa Tempat">Sewa Tempat</option></select><input id="transaksiJumlah" type="number" class="input-field w-full" placeholder="Jumlah (Rp)"><div class="flex gap-4 items-center pt-1"><label class="flex items-center gap-2"><input type="radio" name="transaksiTipe" value="pendapatan" checked class="h-4 w-4 text-green-600 focus:ring-green-500"> Pendapatan</label><label class="flex items-center gap-2"><input type="radio" name="transaksiTipe" value="pengeluaran" class="h-4 w-4 text-red-600 focus:ring-red-500"> Pengeluaran</label></div><button type="submit" class="btn btn-primary w-full !mt-4"><i id="formTransaksiIcon" class="fas fa-plus"></i> <span id="formTransaksiText">Simpan Transaksi</span></button><button type="button" id="batalEditTransaksi" class="hidden w-full btn bg-gray-200 text-gray-700"><i class="fas fa-times"></i> Batal Edit</button></form></div><div class="card p-5 flex-shrink-0"><h3 class="font-bold text-lg mb-3">Ringkasan Bulan Ini</h3><div class="w-full max-w-[250px] mx-auto mb-4"><canvas id="rekapChart"></canvas></div><div class="space-y-2 text-sm"><div class="flex justify-between items-center"><span class="text-gray-600">Total Pendapatan</span><strong id="rekapPendapatan" class="text-green-600"></strong></div><div class="flex justify-between items-center"><span class="text-gray-600">Total Pengeluaran</span><strong id="rekapPengeluaran" class="text-red-600"></strong></div><hr class="my-2"><div class="flex justify-between items-center text-base"><span class="font-semibold">Laba Bersih</span><strong id="rekapSaldo" class="text-indigo-600"></strong></div></div></div></div><div class="lg:col-span-2 card flex flex-col"><div class="p-4 border-b flex-shrink-0 flex justify-between items-center"><h3 class="font-bold text-lg">Daftar Transaksi</h3><select id="rekapFilterBulan" class="input-field !py-1 !px-3"></select></div><div id="rekapList" class="space-y-2 p-4 overflow-y-auto"></div></div></div></div></div>
+    <div id="premiumModal" class="modal-overlay"><div class="modal-content card max-w-md w-full p-8 text-center relative"><button id="closePremiumModal" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 w-8 h-8 rounded-full hover:bg-red-100 flex items-center justify-center"><i class="fas fa-times"></i></button><div class="premium-icon-pulse text-6xl text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-indigo-600 mb-4"><i class="fas fa-gem"></i></div><h2 class="text-2xl font-bold text-gray-800">Fitur Premium Terkunci</h2><p class="text-gray-600 mt-2 mb-6">Tingkatkan pengalaman Anda dan kelola laundry lebih efisien dengan mengaktifkan versi Premium.</p><div class="space-y-3 text-left bg-slate-50 p-4 rounded-lg"><p class="flex items-center gap-3"><i class="fas fa-check-circle text-green-500"></i><span class="font-medium">Pencarian Cepat & Riwayat Pelanggan</span></p><p class="flex items-center gap-3"><i class="fas fa-check-circle text-green-500"></i><span class="font-medium">Backup & Restore Data dengan Aman</span></p><p class="flex items-center gap-3"><i class="fas fa-check-circle text-green-500"></i><span class="font-medium">Dukungan Prioritas dari Developer</span></p></div><button onclick="kirimApresiasiWA()" class="w-full btn btn-primary mt-6 !text-base"><i class="fab fa-whatsapp"></i> Aktivasi Sekarang via WA</button></div></div>
+    <div id="confirmModal" class="modal-overlay"><div class="modal-content card max-w-sm w-full p-6 text-center"><div id="confirmIcon" class="text-5xl mb-4 text-amber-500"><i class="fas fa-exclamation-triangle"></i></div><h2 id="confirmTitle" class="text-xl font-bold text-gray-800">Konfirmasi</h2><p id="confirmMessage" class="text-gray-600 my-4">Apakah Anda yakin ingin melanjutkan?</p><div class="flex justify-center gap-4 mt-6"><button id="confirmBtnNo" class="btn bg-gray-200 text-gray-800 w-28">Batal</button><button id="confirmBtnYes" class="btn btn-danger w-28">Ya, Lanjutkan</button></div></div></div>
+    <div id="cleanupModal" class="modal-overlay"><div class="modal-content card max-w-md w-full p-6"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Hapus Order Selesai</h2><button id="closeCleanupModal" class="text-gray-400 hover:text-red-500 w-8 h-8"><i class="fas fa-times"></i></button></div><p class="text-gray-600 mb-6">Fitur ini akan menghapus secara permanen data order yang telah berstatus "Sudah Diambil" untuk meringankan penyimpanan. Pilih periode data yang ingin dihapus.</p><div class="space-y-3"><button id="cleanup7DaysButton" class="w-full btn btn-secondary"><i class="fas fa-calendar-week w-5"></i>Hapus yang lebih dari 7 hari</button><button id="cleanupAllButton" class="w-full btn btn-danger"><i class="fas fa-trash-alt w-5"></i>Hapus Semua Order Selesai</button></div></div></div>
+
+<script>
+// --- KONFIGURASI, DATA, & VARIABEL ---
+const ORDER_LS_KEY = "data_laundry_app_v7";
+const CONFIG_LS_KEY = "config_laundry_app_v2";
+const REKAP_LS_KEY = "rekap_laundry_app_v1";
+const BACKUP_STATUS_KEY = "backup_status_laundry_v1";
+const LS_INSTALL_ID = "laundry_install_id_v1";
+const LS_LICENSE_KEY = "laundry_license_key_v1";
+const LS_LICENSE_EXPIRY = "laundry_license_expiry_v1"; 
+const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy...[GANTI DENGAN
+KUNCI PUBLIK ANDA]...
+-----END PUBLIC KEY-----`;
+
+let NAMA_LAUNDRY, ALAMAT_LAUNDRY, WA_LAUNDRY;
+let layananList = {};
+let rekapChartInstance = null;
+let confirmPromise = null;
+const HARGA_EXPRESS = 10000;
+const STATUS_PENGERJAAN = ['Diterima', 'Proses Cuci', 'Proses Setrika', 'Siap Diambil', 'Sudah Diambil'];
+let IS_PREMIUM = false;
+
+// --- FUNGSI HELPER & UI GLOBAL---
+function showModal(modalId) { document.getElementById(modalId)?.classList.add('show'); }
+function hideModal(modalId) { document.getElementById(modalId)?.classList.remove('show'); }
+async function showConfirm({title = "Konfirmasi", message = "Apakah Anda yakin?", confirmText = "Ya, Lanjutkan", type = "warning"}) {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').innerText = title;
+    document.getElementById('confirmMessage').innerText = message;
+    const btnYes = document.getElementById('confirmBtnYes');
+    btnYes.innerText = confirmText;
+    const iconEl = document.getElementById('confirmIcon');
+    btnYes.className = 'btn w-28';
+    iconEl.className = 'text-5xl mb-4';
+    if (type === 'danger') {
+        btnYes.classList.add('btn-danger');
+        iconEl.classList.add('text-red-500');
+        iconEl.innerHTML = '<i class="far fa-trash-alt"></i>';
+    } else {
+        btnYes.classList.add('btn-warning','text-black');
+        iconEl.classList.add('text-amber-500');
+        iconEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+    }
+    showModal('confirmModal');
+    return new Promise((resolve) => { confirmPromise = resolve; });
+}
+function resolveConfirm(result) {
+    if (confirmPromise) {
+        confirmPromise(result);
+        confirmPromise = null;
+    }
+    hideModal('confirmModal');
+}
+function formatRupiah(angka) { return Number(angka || 0).toLocaleString('id-ID'); }
+function padBoth(kiri, kanan, lebar) { const sisa = lebar - (kiri.length + kanan.length); return kiri + ' '.repeat(sisa > 0 ? sisa : 1) + kanan; }
+function formatTanggal(val, sertakanJam = true) {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d)) return val;
+    const tgl = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    return sertakanJam ? `${tgl} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : tgl;
+}
+function formatNoHP(no) {
+    if (!no) return '';
+    no = no.replace(/[\s\.\-]/g, "");
+    if (no.startsWith('0')) return '62' + no.slice(1);
+    if (no.startsWith('+')) return no.slice(1);
+    return no;
+}
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<i class="fas ${icons[type]}"></i><span>${message}</span><div class="toast-progress"></div>`;
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.addEventListener('transitionend', () => toast.remove());
+    }, 4000);
+}
+function generateKodeUnik() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+function copyToClipboard(text, message = 'Teks disalin!') {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(message, 'success');
+    }).catch(err => {
+        showToast('Gagal menyalin.', 'error');
+    });
+}
+function getAllOrders() { return JSON.parse(localStorage.getItem(ORDER_LS_KEY) || "{}"); }
+function saveAllOrders(db) { localStorage.setItem(ORDER_LS_KEY, JSON.stringify(db)); }
+// --- FUNGSI LISENSI & DONASI ---
+function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
+function validateLicenseKey(installId, licenseKey) {
+    if (!licenseKey || !installId) return { isValid: false };
+    if (PUBLIC_KEY.includes("...")) {
+        console.warn("VALIDASI LISENSI DILONCATI: Kunci Publik belum diatur!");
+        return { isValid: true, expires: '2099-12-31' };
+    }
+    try {
+        const decodedKey = atob(licenseKey);
+        const parts = decodedKey.split('|');
+        if (parts.length !== 3) return { isValid: false, reason: "Format kunci salah." };
+        const [keyInstallId, expiryDateStr, signatureHex] = parts;
+        if (keyInstallId !== installId) return { isValid: false, reason: "Kunci ini untuk ID Aplikasi yang berbeda." };
+        const dataToVerify = keyInstallId + '|' + expiryDateStr;
+        const sig = new KJUR.crypto.Signature({ "alg": "SHA256withRSA" });
+        sig.init(PUBLIC_KEY);
+        sig.updateString(dataToVerify);
+        const isValidSignature = sig.verify(signatureHex);
+        if (!isValidSignature) return { isValid: false, reason: "Tanda tangan tidak valid." };
+        const expiryDate = new Date(expiryDateStr + 'T23:59:59');
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (expiryDate < today) return { isValid: false, isExpired: true, expires: expiryDateStr };
+        return { isValid: true, expires: expiryDateStr };
+    } catch (e) {
+        return { isValid: false, reason: "Error saat memproses kunci." };
+    }
+}
+function updateAppLockState(isLicensed) {
+    IS_PREMIUM = isLicensed;
+    const backupBtn = document.getElementById('backupButton');
+    if (isLicensed) {
+        backupBtn.disabled = false;
+        backupBtn.classList.remove('btn-disabled');
+    } else {
+        backupBtn.disabled = true;
+        backupBtn.classList.add('btn-disabled');
+    }
+}
+function activateLicense() {
+    const installId = localStorage.getItem(LS_INSTALL_ID);
+    const licenseKey = document.getElementById('licenseKey').value.trim();
+    if (!licenseKey) return;
+    const validationResult = validateLicenseKey(installId, licenseKey);
+    if (validationResult.isValid) {
+        localStorage.setItem(LS_LICENSE_KEY, licenseKey);
+        localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires); // Simpan tanggal kedaluwarsa
+        initLicenseSystem();
+        showToast('Aplikasi berhasil diaktivasi!', 'success');
+    } else {
+        const reason = validationResult.isExpired ? `Kunci lisensi telah kedaluwarsa.` : (validationResult.reason || 'Kunci lisensi tidak valid.');
+        const statusEl = document.getElementById('licenseStatus');
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-600"></i><span class="ml-2 font-semibold text-red-700">${reason}</span>`;
+        statusEl.className = 'p-3 rounded-lg text-center text-sm bg-red-100';
+        updateAppLockState(false);
+    }
+}
+function showDonationToast() { document.getElementById('donationToast').style.transform = 'translateY(0)'; }
+function kirimApresiasiWA() {
+    const installId = localStorage.getItem(LS_INSTALL_ID) || 'ID tidak ditemukan';
+    const noWA = '6281775700114';
+    const pesan = `Halo, saya sangat terbantu dengan Aplikasi Laundry Modern v2.9.\n\nSaya ingin memberikan apresiasi dan mengajukan permohonan untuk aktivasi fitur premium.\n\nID Aplikasi saya adalah:\n*${installId}*\n\nTerima kasih.`;
+    const url = `https://wa.me/${noWA}?text=${encodeURIComponent(pesan)}`;
+    window.open(url, '_blank');
+}
+function requestLicenseExtension() {
+    const installId = localStorage.getItem(LS_INSTALL_ID);
+    const expiryDate = localStorage.getItem(LS_LICENSE_EXPIRY);
+    const noWA = '6281775700114';
+    const pesan = `Halo, saya ingin memperpanjang lisensi untuk Aplikasi Laundry Modern.\n\nID Aplikasi: *${installId}*\nLisensi saat ini berakhir pada: *${expiryDate}*\n\nMohon informasinya untuk proses perpanjangan. Terima kasih.`;
+    const url = `https://wa.me/${noWA}?text=${encodeURIComponent(pesan)}`;
+    window.open(url, '_blank');
+}
+function initLicenseSystem() {
+    let installId = localStorage.getItem(LS_INSTALL_ID);
+    if (!installId) {
+        installId = generateUUID();
+        localStorage.setItem(LS_INSTALL_ID, installId);
+    }
+    document.getElementById('installationId').textContent = installId;
+    document.getElementById('installationId').onclick = () => copyToClipboard(installId, 'ID Aplikasi disalin!');
+    const licenseKey = localStorage.getItem(LS_LICENSE_KEY);
+    const statusEl = document.getElementById('licenseStatus');
+    const licenseArea = document.getElementById('licenseArea');
+    const extendBtn = document.getElementById('extendLicenseButton');
+
+    extendBtn.style.display = 'none'; // Sembunyikan default
+
+    if (!licenseKey) {
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i><span class="ml-2 font-semibold text-yellow-700">Aplikasi belum diaktivasi.</span>`;
+        statusEl.className = 'p-3 rounded-lg text-center text-sm bg-yellow-100';
+        updateAppLockState(false);
+        setTimeout(showDonationToast, 5000);
+        return;
+    }
+    const validationResult = validateLicenseKey(installId, licenseKey);
+    if (validationResult.isValid) {
+        localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires); // Selalu update expiry date
+        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-600"></i><span class="ml-2 font-semibold text-green-700">Lisensi Premium Aktif hingga ${tgl}</span>`;
+        statusEl.className = 'p-3 rounded-lg text-center text-sm bg-green-100';
+        licenseArea.style.display = 'none';
+        extendBtn.style.display = 'block'; // Tampilkan tombol perpanjang
+        updateAppLockState(true);
+    } else {
+        const reason = validationResult.isExpired ? `Lisensi Anda kedaluwarsa.` : 'Lisensi tidak valid.';
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-600"></i><span class="ml-2 font-semibold text-red-700">${reason}</span>`;
+        statusEl.className = 'p-3 rounded-lg text-center text-sm bg-red-100';
+        licenseArea.style.display = 'block';
+        updateAppLockState(false);
+        setTimeout(showDonationToast, 3000);
+    }
+}
+// --- MANAJEMEN LAYANAN ---
+function renderLayananEditor() {
+    const container = document.getElementById('layananEditorContainer');
+    container.innerHTML = '';
+    Object.keys(layananList).forEach(namaLayanan => {
+        const data = layananList[namaLayanan];
+        tambahLayananEditorRow(namaLayanan, data.harga, data.satuan);
+    });
+}
+function tambahLayananEditorRow(nama = '', harga = '', satuan = 'Kg') {
+    const container = document.getElementById('layananEditorContainer');
+    const div = document.createElement('div');
+    div.className = 'layanan-editor-row grid grid-cols-12 gap-2 items-center';
+    div.innerHTML = `<input type="text" value="${nama}" placeholder="Nama Layanan" class="col-span-5 input-field layanan-nama"><input type="number" value="${harga}" placeholder="Harga" class="col-span-3 input-field layanan-harga"><select class="col-span-3 input-field layanan-satuan"><option value="Kg" ${satuan === 'Kg' ? 'selected' : ''}>Kg</option><option value="Pcs" ${satuan === 'Pcs' ? 'selected' : ''}>Pcs</option><option value="m²" ${satuan === 'm²' ? 'selected' : ''}>m²</option></select><button onclick="this.parentElement.remove()" class="col-span-1 btn btn-danger !p-2 h-10 w-10"><i class="fas fa-trash-alt"></i></button>`;
+    container.appendChild(div);
+}
+
+// --- PENGATURAN & UI ---
+function loadConfig() {
+    let config = JSON.parse(localStorage.getItem(CONFIG_LS_KEY));
+    if (!config || !config.layanan) {
+        config = {
+            nama: "Laundry Modern", alamat: "Jl. Bersih Selalu No. 1", wa: "081234567890",
+            layanan: { 'Cuci Kering Setrika':{harga:8000,satuan:"Kg"}, 'Setrika Saja':{harga:5000,satuan:"Kg"}, 'Bed Cover King':{harga:25000,satuan:"Pcs"}, 'Bed Cover Queen':{harga:20000,satuan:"Pcs"} }
+        };
+        localStorage.setItem(CONFIG_LS_KEY, JSON.stringify(config));
+    }
+    NAMA_LAUNDRY = config.nama; ALAMAT_LAUNDRY = config.alamat; WA_LAUNDRY = config.wa; layananList = config.layanan;
+    updateUiWithConfig();
+}
+function saveConfig() {
+    const newLayananList = {};
+    document.querySelectorAll('.layanan-editor-row').forEach(row => {
+        const nama = row.querySelector('.layanan-nama').value.trim();
+        const harga = parseFloat(row.querySelector('.layanan-harga').value) || 0;
+        const satuan = row.querySelector('.layanan-satuan').value;
+        if (nama && harga > 0) { newLayananList[nama] = { harga, satuan }; }
+    });
+    const newConfig = {
+        nama: document.getElementById('sNamaLaundry').value, alamat: document.getElementById('sAlamatLaundry').value, wa: document.getElementById('sWaLaundry').value,
+        layanan: newLayananList
+    };
+    localStorage.setItem(CONFIG_LS_KEY, JSON.stringify(newConfig));
+    loadConfig(); showToast('Pengaturan berhasil disimpan!', 'success'); hideModal('settingsView'); resetForm();
+}
+function updateUiWithConfig() { document.getElementById('namaLaundryHeader').textContent = NAMA_LAUNDRY; renderStruk(); }
+// --- FUNGSI REKAP KEUANGAN ---
+function getTransaksi() { return JSON.parse(localStorage.getItem(REKAP_LS_KEY) || "[]"); }
+function saveTransaksi(transaksi) { localStorage.setItem(REKAP_LS_KEY, JSON.stringify(transaksi)); }
+function resetFormTransaksi() {
+    const form = document.getElementById('formTransaksi');
+    form.reset();
+    document.getElementById('transaksiId').value = '';
+    document.getElementById('transaksiTanggal').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('transaksiKategori').classList.add('hidden');
+    document.getElementById('formTransaksiTitle').innerText = 'Tambah Transaksi';
+    document.getElementById('formTransaksiIcon').className = 'fas fa-plus';
+    document.getElementById('formTransaksiText').innerText = 'Simpan Transaksi';
+    document.getElementById('batalEditTransaksi').classList.add('hidden');
+}
+async function handleHapusTransaksi(id) {
+    const confirmed = await showConfirm({ title: "Hapus Transaksi?", message: "Anda yakin ingin menghapus transaksi ini? Aksi ini tidak dapat dibatalkan.", confirmText: "Ya, Hapus", type: 'danger' });
+    if (confirmed) {
+        let transaksi = getTransaksi();
+        transaksi = transaksi.filter(t => t.id !== id);
+        saveTransaksi(transaksi);
+        renderRekap();
+        showToast('Transaksi berhasil dihapus.', 'success');
+    }
+}
+function handleEditTransaksi(id) {
+    const allTx = getTransaksi();
+    const tx = allTx.find(t => t.id === id);
+    if (!tx) return;
+    document.getElementById('transaksiId').value = tx.id;
+    document.getElementById('transaksiTanggal').value = tx.tanggal;
+    document.getElementById('transaksiKeterangan').value = tx.keterangan;
+    document.getElementById('transaksiJumlah').value = tx.jumlah;
+    document.querySelector(`input[name="transaksiTipe"][value="${tx.tipe}"]`).checked = true;
+    const kategoriSelect = document.getElementById('transaksiKategori');
+    if (tx.tipe === 'pengeluaran') {
+        kategoriSelect.classList.remove('hidden');
+        kategoriSelect.value = tx.kategori || 'Lainnya';
+    } else {
+        kategoriSelect.classList.add('hidden');
+    }
+    document.getElementById('formTransaksiTitle').innerText = 'Edit Transaksi';
+    document.getElementById('formTransaksiIcon').className = 'fas fa-save';
+    document.getElementById('formTransaksiText').innerText = 'Update Transaksi';
+    document.getElementById('batalEditTransaksi').classList.remove('hidden');
+}
+function populateBulanFilter() {
+    const transaksi = getTransaksi();
+    const filterEl = document.getElementById('rekapFilterBulan');
+    const existingValue = filterEl.value;
+    const months = ["Semua Bulan", ...new Set(transaksi.map(t => t.tanggal.substring(0, 7)).sort().reverse())];
+    filterEl.innerHTML = months.map(m => `<option value="${m}">${m === 'Semua Bulan' ? 'Semua Bulan' : new Date(m+'-02').toLocaleString('id-ID', {month: 'long', year: 'numeric'})}</option>`).join('');
+    if (months.includes(existingValue)) {
+        filterEl.value = existingValue;
+    }
+}
+function renderRekap() {
+    const allTransaksi = getTransaksi();
+    const filterBulan = document.getElementById('rekapFilterBulan').value;
+    const listEl = document.getElementById('rekapList');
+    listEl.innerHTML = "";
+    const filteredTransaksi = (filterBulan && filterBulan !== "Semua Bulan") ? allTransaksi.filter(t => t.tanggal.startsWith(filterBulan)) : allTransaksi;
+    let totalPendapatan = 0, totalPengeluaran = 0;
+    filteredTransaksi.forEach(t => { (t.tipe === 'pendapatan') ? totalPendapatan += t.jumlah : totalPengeluaran += t.jumlah; });
+    
+    filteredTransaksi.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+
+    if (filteredTransaksi.length === 0) {
+        listEl.innerHTML = '<div class="text-center text-gray-500 py-10"><i class="fas fa-box-open fa-3x mb-3"></i><p>Belum ada transaksi di bulan ini.</p></div>';
+    } else {
+        filteredTransaksi.forEach(t => {
+            const itemEl = document.createElement('div');
+            const isPendapatan = t.tipe === 'pendapatan';
+            itemEl.className = `p-3 bg-white rounded-lg shadow-sm border-l-4 ${isPendapatan ? 'border-green-400' : 'border-red-400'} flex justify-between items-center group`;
+            const kategoriText = t.kategori ? `<span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">${t.kategori}</span>` : '';
+            itemEl.innerHTML = `<div class="flex items-center gap-3"><div class="text-xl ${isPendapatan ? 'text-green-500' : 'text-red-500'}"><i class="fas ${isPendapatan ? 'fa-arrow-up' : 'fa-arrow-down'}"></i></div><div><p class="font-semibold">${t.keterangan}</p><p class="text-sm text-gray-500">${formatTanggal(t.tanggal, false)} ${kategoriText}</p></div></div><div class="text-right flex items-center gap-2"><p class="font-bold text-lg ${isPendapatan ? 'text-green-600' : 'text-red-600'}">${isPendapatan ? '+' : '-'} Rp ${formatRupiah(t.jumlah)}</p><div class="opacity-0 group-hover:opacity-100 transition-opacity"><button onclick="handleEditTransaksi('${t.id}')" class="btn !p-2 h-8 w-8 !rounded-full bg-blue-100 text-blue-600" title="Edit"><i class="fas fa-pencil-alt"></i></button><button onclick="handleHapusTransaksi('${t.id}')" class="btn !p-2 h-8 w-8 !rounded-full bg-red-100 text-red-600" title="Hapus"><i class="fas fa-trash-alt"></i></button></div></div>`;
+            listEl.appendChild(itemEl);
+        });
+    }
+
+    document.getElementById('rekapPendapatan').textContent = `Rp ${formatRupiah(totalPendapatan)}`;
+    document.getElementById('rekapPengeluaran').textContent = `Rp ${formatRupiah(totalPengeluaran)}`;
+    document.getElementById('rekapSaldo').textContent = `Rp ${formatRupiah(totalPendapatan - totalPengeluaran)}`;
+
+    const ctx = document.getElementById('rekapChart').getContext('2d');
+    if (rekapChartInstance) rekapChartInstance.destroy();
+    rekapChartInstance = new Chart(ctx, {
+        type: 'pie', data: { labels: ['Pendapatan', 'Pengeluaran'], datasets: [{ data: [totalPendapatan || 0.1, totalPengeluaran || 0.1], backgroundColor: ['#10b981', '#ef4444'], borderWidth: 2, borderColor: '#f9fafb' }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 15 } } } }
+    });
+}
+function addTransaksi(transaksi) {
+    let allTx = getTransaksi();
+    allTx.push(transaksi);
+    saveTransaksi(allTx);
+}
+
+
+
+// --- FUNGSI INTI ---
+function resetForm() {
+    document.getElementById('formTitle').textContent = 'Input Order Baru'; document.getElementById('iOrderId').value = ''; document.getElementById('iNamaPelanggan').value = ''; document.getElementById('iNoHp').value = ''; document.getElementById('iTanggalSelesai').value = ''; document.getElementById('iDiskon').value = ''; document.getElementById('iExpress').checked = false; document.getElementById('listLayanan').innerHTML = ''; document.getElementById('batalEditButton').classList.add('hidden');
+    const today = new Date(); document.getElementById('iTanggalMasuk').value = `${today.toISOString().slice(0, 10)}T${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`;
+    tambahLayananCard(); renderStruk();
+}
+function tambahLayananCard(data={}){const c=document.getElementById("listLayanan"),d=document.createElement("div");d.className="layanan-card relative rounded-xl border bg-slate-50 shadow-sm p-4";let e='<option value="">Pilih Layanan</option>';for(const f in layananList)e+=`<option value="${f}" ${data.nama===f?"selected":""}>${f}</option>`;d.innerHTML=`<button type="button" class="delete-layanan absolute top-3 right-3 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-full w-7 h-7 flex items-center justify-center transition-colors"><i class="fas fa-times"></i></button><div class="flex flex-col md:flex-row gap-4"><div class="flex-grow"><label class="text-xs font-medium text-gray-500">Layanan</label><select class="layanan input-field w-full mt-1">${e}</select></div><div class="flex-shrink-0"><label class="text-xs font-medium text-gray-500">Qty</label><div class="flex items-center"><input type="number" min="0" step="0.1" class="qty input-field w-24 mt-1 rounded-r-none" value="${data.qty||""}"><input class="satuan input-field w-20 mt-1 bg-gray-200 rounded-l-none border-l-0 text-center" readonly value="${data.satuan||""}"></div></div></div><div class="mt-3 border-t pt-3 grid grid-cols-2 gap-4"><div class="flex-grow"><label class="text-xs font-medium text-gray-500">Harga Satuan (Rp)</label><input class="harga input-field w-full mt-1" value="${data.harga?formatRupiah(data.harga):""}"></div><div class="text-right"><label class="text-xs font-medium text-gray-500">Subtotal</label><p class="subtotal-display text-2xl font-bold text-indigo-600 mt-1">Rp 0</p></div></div>`;c.appendChild(d)}
+function getOrderForm(){const a=[];document.querySelectorAll(".layanan-card").forEach(b=>{const c=b.querySelector(".layanan").value,d=parseFloat(b.querySelector(".qty").value)||0,e=b.querySelector(".satuan").value,f=parseInt(String(b.querySelector(".harga").value).replace(/\D/g,""))||0;c&&d>0&&a.push({nama:c,qty:d,satuan:e,harga:f})});const isExpress=document.getElementById("iExpress").checked;return{id:document.getElementById("iOrderId").value||`order_${Date.now()}`,pelanggan:document.getElementById("iNamaPelanggan").value.trim(),noHp:document.getElementById("iNoHp").value.trim(),tglMasuk:document.getElementById("iTanggalMasuk").value,tglSelesai:document.getElementById("iTanggalSelesai").value,layanan:a,diskon:parseFloat(document.getElementById("iDiskon").value)||0,isExpress:isExpress,hargaExpress:isExpress?HARGA_EXPRESS:0,statusPengerjaan:"Diterima",statusPembayaran:"Belum Lunas"}}
+function makeNota(a){const subtotal=a.layanan.reduce((sum,item)=>sum+item.qty*item.harga,0);const totalSetelahDiskon=subtotal-(a.diskon||0);const grandTotal=totalSetelahDiskon+(a.hargaExpress||0);let b=`\n*${NAMA_LAUNDRY}*\n${ALAMAT_LAUNDRY}\nWA: ${WA_LAUNDRY}\n================================\n`;b+=`Pelanggan : ${a.pelanggan||"-"}\nNo. HP    : ${a.noHp||"-"}\n`,b+=`Tgl Masuk : ${formatTanggal(a.tglMasuk)}\nTgl Selesai: ${a.tglSelesai?formatTanggal(a.tglSelesai,!1):"-"}\n`,b+=`Status Bayar: ${a.statusPembayaran||'Belum Lunas'}\n`,b+="--------------------------------\n",a.layanan.forEach(d=>{const e=d.qty*d.harga;b+=`${d.nama}\n`,b+=padBoth(`${d.qty} ${d.satuan} x ${formatRupiah(d.harga)}`,`Rp ${formatRupiah(e)}`,32)+"\n"}),b+="--------------------------------\n",b+=padBoth("Subtotal:",`Rp ${formatRupiah(subtotal)}`,32)+"\n";if(a.diskon>0)b+=padBoth("Diskon:",`- Rp ${formatRupiah(a.diskon)}`,32)+"\n";if(a.isExpress)b+=padBoth("Biaya Express:",`+ Rp ${formatRupiah(a.hargaExpress)}`,32)+"\n";b+="================================\n",b+=padBoth("TOTAL BAYAR:",`Rp ${formatRupiah(grandTotal)}`,32)+"\n\n",b+="Terima kasih! Ini adalah bukti transaksi Anda.\nKami akan menghubungi Anda lagi setelah laundry selesai.";return b}
+function renderStruk(){document.querySelectorAll(".layanan-card").forEach(a=>{const b=parseFloat(a.querySelector(".qty").value)||0,c=parseInt(String(a.querySelector(".harga").value).replace(/\D/g,""))||0,subtotalEl=a.querySelector(".subtotal-display");subtotalEl.textContent=b&&c?`Rp ${formatRupiah(b*c)}`:"Rp 0"});const d=getOrderForm();const expressFeeEl=document.getElementById("expressFeeText");expressFeeEl.textContent=d.isExpress?`+ Rp ${formatRupiah(HARGA_EXPRESS)}`:"";document.getElementById("previewStruk").textContent=makeNota(d)}
+function simpanOrder(){const orderData=getOrderForm();if(!orderData.pelanggan)return showToast("Nama pelanggan wajib diisi!",'error');if(orderData.layanan.length===0)return showToast("Minimal 1 layanan yang dipilih!",'error');let db=getAllOrders();const isEditing=!!document.getElementById('iOrderId').value;let oldData=null;if(isEditing){const originalCustomer=Object.keys(db).find(cust=>db[cust].some(o=>o.id===orderData.id));if(originalCustomer){const orderIndex=db[originalCustomer].findIndex(o=>o.id===orderData.id);if(orderIndex>-1){oldData=db[originalCustomer][orderIndex];if(originalCustomer!==orderData.pelanggan){db[originalCustomer].splice(orderIndex,1);if(db[originalCustomer].length===0)delete db[originalCustomer]}}}else if(!originalCustomer&&isEditing){return showToast("Error: Order lama tidak ditemukan untuk diedit.",'error')}}db[orderData.pelanggan]||(db[orderData.pelanggan]=[]);const existingIndex=db[orderData.pelanggan].findIndex(o=>o.id===orderData.id);if(existingIndex>-1){orderData.kodeUnik=oldData.kodeUnik||generateKodeUnik();orderData.statusPengerjaan=oldData.statusPengerjaan;orderData.statusPembayaran=oldData.statusPembayaran;db[orderData.pelanggan][existingIndex]=orderData}else{orderData.kodeUnik=generateKodeUnik();db[orderData.pelanggan].push(orderData)}saveAllOrders(db);if(!isEditing){const total=orderData.layanan.reduce((s,i)=>s+i.qty*i.harga,0)-(orderData.diskon||0)+(orderData.hargaExpress||0);addTransaksi({id:`tx_${orderData.id}`,tanggal:new Date(orderData.tglMasuk).toISOString().slice(0,10),keterangan:`Pendapatan dari order ${orderData.pelanggan}`,jumlah:total,tipe:"pendapatan",orderId:orderData.id})}showToast(isEditing?"Order berhasil diperbarui!":"Order disimpan & pendapatan dicatat!",'success');if(!isEditing&&orderData.noHp)kirimNota(orderData);resetForm();checkBackupStatus();populateBulanFilter();renderRekap()}
+function kirimNota(a){const b=formatNoHP(a.noHp),c=makeNota(a),d=`https://wa.me/${b}?text=${encodeURIComponent(c)}`;window.open(d,"_blank")}
+async function kirimNotifSelesai(order) {
+    const confirmed = await showConfirm({ title: "Kirim Notifikasi Selesai?", message: `Kirim notifikasi WhatsApp bahwa laundry sudah siap diambil ke ${order.pelanggan}?`, confirmText: "Ya, Kirim" });
+    if (!confirmed) return;
+    const total = order.layanan.reduce((sum, item) => sum + item.qty * item.harga, 0) - (order.diskon || 0) + (order.hargaExpress || 0);
+    const pesan = `Halo *${order.pelanggan}*,\n\nLaundry Anda telah selesai dan siap untuk dijemput! ✨\n\n*Kode Pengambilan* Anda adalah:\n\`\`\`\n=====================\n  TIKET PENGAMBILAN\n=====================\n\nTOTAL TAGIHAN:\n*Rp ${formatRupiah(total)}*\n(${order.statusPembayaran || 'Belum Lunas'})\n\nKODE PENGAMBILAN:\n*******************\n*${order.kodeUnik}*\n*******************\n\`\`\`\nMohon tunjukkan kode ini saat pengambilan. Terima kasih telah mempercayakan cucian Anda pada *${NAMA_LAUNDRY}*!`;
+    const noHp = formatNoHP(order.noHp);
+    if (noHp) { const url = `https://wa.me/${noHp}?text=${encodeURIComponent(pesan)}`; window.open(url, "_blank"); }
+}
+function renderCustomerList(searchQuery = "") {
+    const db = getAllOrders(); const listEl = document.getElementById("customerList"); listEl.innerHTML = "";
+    const searchTerm = searchQuery.toLowerCase(); const searchCode = searchQuery.toUpperCase();
+    const filteredCustomers = Object.keys(db).filter(name => name.toLowerCase().includes(searchTerm) || db[name].some(order => order.kodeUnik?.includes(searchCode)));
+    if (filteredCustomers.length === 0) { listEl.innerHTML = '<p class="text-center text-gray-500 py-10">Tidak ada pelanggan yang cocok.</p>'; return; }
+    filteredCustomers.forEach(customerName => {
+        const orders = db[customerName]; let siapCount = 0, prosesCount = 0;
+        orders.forEach(order => { const status = order.statusPengerjaan || 'Diterima'; if (status === 'Siap Diambil') siapCount++; else if (status !== 'Sudah Diambil') prosesCount++; });
+        const totalActiveOrders = siapCount + prosesCount;
+        const cardEl = document.createElement("div"); cardEl.className = "p-4 bg-white rounded-lg shadow-sm border cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 flex justify-between items-center";
+        cardEl.onclick = () => showCustomerOrders(customerName);
+        let statusHtml = totalActiveOrders > 0 ? `<p class="text-sm text-gray-500">${totalActiveOrders} order aktif</p><div class="flex gap-1.5 mt-1.5">${'<span class="status-dot dot-blue"></span>'.repeat(siapCount)}${'<span class="status-dot dot-yellow"></span>'.repeat(prosesCount)}</div>` : `<p class="text-sm text-green-600 flex items-center gap-2"><i class="fas fa-check-circle"></i> Semua order selesai</p>`;
+        if (totalActiveOrders === 0) cardEl.classList.add('opacity-60');
+        cardEl.innerHTML = `<div><p class="font-semibold text-gray-800">${customerName}</p>${statusHtml}</div><i class="fas fa-chevron-right text-gray-400"></i>`;
+        listEl.appendChild(cardEl);
+    });
+}
+function showCustomerOrders(a){const b=getAllOrders(),c=b[a]||[],d=document.getElementById("orderDetails");d.innerHTML="",document.getElementById("dbModalTitle").innerText=`Riwayat Order: ${a}`,document.getElementById("customerListContainer").classList.add("hidden"),document.getElementById("orderDetailsContainer").classList.remove("hidden");[...c].reverse().forEach(e=>{const f=document.createElement("div");f.className="p-4 bg-white rounded-lg shadow-sm border";const g=e.layanan.reduce((h,i)=>h+i.qty*i.harga,0)-(e.diskon||0)+(e.hargaExpress||0);let h='<ul class="mt-2 space-y-1 text-sm">';e.layanan.forEach(i=>{h+=`<li class="flex justify-between"><span>- ${i.nama} (${i.qty} ${i.satuan})</span> <span class="text-gray-600">Rp ${formatRupiah(i.qty*i.harga)}</span></li>`});h+="</ul>";if(e.diskon>0)h+=`<div class="text-sm flex justify-between mt-1"><span class="font-medium">Diskon</span><span class="text-red-600">- Rp ${formatRupiah(e.diskon)}</span></div>`;if(e.isExpress)h+=`<div class="text-sm flex justify-between mt-1"><span class="font-medium">Biaya Express</span><span class="text-blue-600">+ Rp ${formatRupiah(e.hargaExpress)}</span></div>`;const statusBayarClass=(e.statusPembayaran==="Lunas")?"tag-green":"tag-red";const statusBayarText=(e.statusPembayaran==="Lunas")?"Lunas":"Belum Lunas";const statusPengerjaan=e.statusPengerjaan||(e.status==="selesai"?"Sudah Diambil":"Diterima");const statusSelectOptions=STATUS_PENGERJAAN.map(s=>`<option value="${s}" ${s===statusPengerjaan?"selected":""}>${s}</option>`).join('');f.innerHTML=`<div class="flex justify-between items-start"><div><p class="font-semibold">Tgl Masuk: ${formatTanggal(e.tglMasuk)}</p><p class="text-sm text-gray-500">ID: ${e.id}</p></div><div class="text-right"><p class="font-bold text-indigo-600 text-lg">Rp ${formatRupiah(g)}</p><p class="text-xs text-gray-500">No. HP: ${e.noHp||'-'}</p></div></div><div class="mt-3 pt-3 border-t"><div class="flex justify-between items-center gap-2"><span class="text-sm font-medium text-gray-600">Status Bayar:</span><button onclick="toggleStatusPembayaran('${a}', '${e.id}')" class="tag ${statusBayarClass} cursor-pointer">${statusBayarText}</button></div><div class="flex justify-between items-center gap-2 mt-2"><label class="text-sm font-medium text-gray-600">Status Order:</label><select onchange="updateStatusPengerjaan('${a}', '${e.id}', this.value)" class="input-field !p-1 !text-sm">${statusSelectOptions}</select></div></div>${e.kodeUnik?`<div class="mt-3 pt-3 border-t border-gray-200"><div class="flex justify-between items-center"><span class="text-sm font-medium text-gray-600"><i class="fas fa-key text-gray-400 mr-2"></i>Kode Pengambilan:</span><div class="flex items-center gap-2"><span class="font-mono font-bold text-lg tracking-wider text-indigo-700 bg-indigo-100 px-3 py-1 rounded-md">${e.kodeUnik}</span><button onclick="copyToClipboard('${e.kodeUnik}', 'Kode pengambilan disalin!')" class="text-gray-500 hover:text-indigo-600 w-8 h-8 rounded-full hover:bg-gray-200 flex items-center justify-center" title="Salin Kode"><i class="fas fa-copy"></i></button></div></div></div>`:''}<hr class="my-3">${h}<div class="mt-3 flex gap-2"><button class="btn btn-secondary w-full" onclick="editOrder('${a}', '${e.id}')"><i class="fas fa-pencil-alt"></i> Edit</button></div>`;d.appendChild(f)})}
+function backToCustomerList(){document.getElementById("dbModalTitle").innerText="Cari Order Pelanggan",document.getElementById("orderDetailsContainer").classList.add("hidden"),document.getElementById("customerListContainer").classList.remove("hidden")}
+function findOrder(customerId, orderId) { const db = getAllOrders(); if (!db[customerId]) return null; return db[customerId].find(o => o.id === orderId); }
+function editOrder(customerId, orderId) { const order = findOrder(customerId, orderId); if (!order) return showToast("Order tidak ditemukan!", 'error'); document.getElementById('formTitle').textContent = `Edit Order: ${order.pelanggan}`; document.getElementById('iOrderId').value = order.id; document.getElementById('iNamaPelanggan').value = order.pelanggan; document.getElementById('iNoHp').value = order.noHp; document.getElementById('iTanggalMasuk').value = order.tglMasuk; document.getElementById('iTanggalSelesai').value = order.tglSelesai; document.getElementById('iDiskon').value = order.diskon || ''; document.getElementById('iExpress').checked = order.isExpress || false; const layananContainer = document.getElementById('listLayanan'); layananContainer.innerHTML = ''; order.layanan.forEach(l => tambahLayananCard(l)); document.getElementById('batalEditButton').classList.remove('hidden'); hideModal('databaseView'); renderStruk(); window.scrollTo(0, 0); }
+function toggleStatusPembayaran(customerId, orderId) { let db = getAllOrders(); const orderIndex = db[customerId].findIndex(o => o.id === orderId); if (orderIndex === -1) return; const currentStatus = db[customerId][orderIndex].statusPembayaran || "Belum Lunas"; db[customerId][orderIndex].statusPembayaran = currentStatus === "Lunas" ? "Belum Lunas" : "Lunas"; saveAllOrders(db); showToast(`Status pembayaran diubah menjadi ${db[customerId][orderIndex].statusPembayaran}`, 'success'); showCustomerOrders(customerId); }
+async function updateStatusPengerjaan(customerId, orderId, newStatus) {
+    let db = getAllOrders();
+    const orderIndex = db[customerId].findIndex(o => o.id === orderId);
+    if (orderIndex === -1) return;
+    const order = db[customerId][orderIndex];
+    if (newStatus === 'Siap Diambil' && order.statusPengerjaan !== 'Siap Diambil') { await kirimNotifSelesai(order); }
+    order.statusPengerjaan = newStatus;
+    saveAllOrders(db);
+    showToast(`Status pengerjaan diubah menjadi ${newStatus}`, 'success');
+    showCustomerOrders(customerId);
+}
+function getTotalOrderCount() {const db=getAllOrders();return Object.values(db).reduce((a,c)=>a+c.length,0)}
+function checkBackupStatus(){const a=JSON.parse(localStorage.getItem(BACKUP_STATUS_KEY)||"{}"),b=a.totalOrders||0,c=getTotalOrderCount(),d=c-b,e=document.getElementById("backup-indicator"),f=document.getElementById("showSettingsButton");d>0?(e.classList.remove("hidden"),f.setAttribute("title",`Anda memiliki ${d} order baru yang belum di-backup.`)):(e.classList.add("hidden"),f.setAttribute("title","Pengaturan"))}
+async function backupData(){ const confirmed = await showConfirm({ title: "Backup Data?", message: "Simpan semua data saat ini ke dalam sebuah file JSON?", confirmText: "Ya, Backup" }); if (!confirmed) return; const a={[ORDER_LS_KEY]:JSON.parse(localStorage.getItem(ORDER_LS_KEY)||"{}"),[CONFIG_LS_KEY]:JSON.parse(localStorage.getItem(CONFIG_LS_KEY)||"{}"),[REKAP_LS_KEY]:JSON.parse(localStorage.getItem(REKAP_LS_KEY)||"[]"),backupInfo:{version:"2.9",timestamp:new Date().toISOString()}},b=JSON.stringify(a,null,2),c=new Blob([b],{type:"application/json"}),d=URL.createObjectURL(c),e=document.createElement("a");e.href=d,e.download=`laundry_backup_${new Date().toISOString().slice(0,10)}.json`,document.body.appendChild(e),e.click(),document.body.removeChild(e),URL.revokeObjectURL(d),localStorage.setItem(BACKUP_STATUS_KEY,JSON.stringify({totalOrders:getTotalOrderCount()})),showToast("Data berhasil di-backup!","success"),checkBackupStatus()}
+function triggerRestore(){document.getElementById("restoreFile").click()}
+async function restoreData(a){const b=a.target.files[0];if(!b)return; const confirmed = await showConfirm({ title: "Timpa Data?", message: "Ini akan menimpa SEMUA data saat ini dengan data dari file backup. Aksi ini tidak dapat dibatalkan.", confirmText: "Ya, Timpa Data", type: 'danger'}); if (!confirmed) { a.target.value = ""; return; } const c=new FileReader;c.onload=function(d){try{const e=JSON.parse(d.target.result);if(e[ORDER_LS_KEY]&&e[CONFIG_LS_KEY]&&e[REKAP_LS_KEY]){localStorage.setItem(ORDER_LS_KEY,JSON.stringify(e[ORDER_LS_KEY])),localStorage.setItem(CONFIG_LS_KEY,JSON.stringify(e[CONFIG_LS_KEY])),localStorage.setItem(REKAP_LS_KEY,JSON.stringify(e[REKAP_LS_KEY]));const f=Object.values(e[ORDER_LS_KEY]).reduce((g,h)=>g+h.length,0);localStorage.setItem(BACKUP_STATUS_KEY,JSON.stringify({totalOrders:f})),showToast("Data berhasil dipulihkan!","success"),setTimeout(()=>window.location.reload(),1500)}else showToast("File backup tidak valid!",'error')}catch(f){showToast("Gagal membaca file backup. Pastikan format benar.",'error')}finally{a.target.value=""}},c.readAsText(b)}
+async function cleanupOrders(days) {
+    hideModal('cleanupModal');
+    const title = `Hapus Order Selesai?`;
+    const message = days > 0 
+        ? `Yakin ingin menghapus permanen semua order yang statusnya "Sudah Diambil" & dibuat lebih dari ${days} hari yang lalu?`
+        : `Yakin ingin menghapus permanen SEMUA order yang statusnya "Sudah Diambil"?`;
+    
+    const confirmed = await showConfirm({ title, message, confirmText: "Ya, Hapus", type: 'danger' });
+    if (!confirmed) return;
+
+    let db = getAllOrders();
+    const now = new Date();
+    let ordersRemovedCount = 0;
+
+    for (const customerName in db) {
+        const originalCount = db[customerName].length;
+        db[customerName] = db[customerName].filter(order => {
+            if (order.statusPengerjaan !== 'Sudah Diambil') {
+                return true; // Keep if not completed
+            }
+            if (days === 0) {
+                return false; // Delete all completed
+            }
+            const orderDate = new Date(order.tglMasuk);
+            const diffTime = now - orderDate;
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            return diffDays <= days; // Keep if within the period
+        });
+        ordersRemovedCount += originalCount - db[customerName].length;
+        if (db[customerName].length === 0) {
+            delete db[customerName];
+        }
+    }
+    
+    saveAllOrders(db);
+    showToast(`${ordersRemovedCount} order selesai telah dihapus.`, 'success');
+    checkBackupStatus();
+}
+
+function setupEventListeners() {
+    document.getElementById('showDbButton').addEventListener('click', () => { IS_PREMIUM ? (showModal('databaseView'), renderCustomerList()) : showModal('premiumModal'); });
+    document.getElementById('showRekapButton').addEventListener('click', () => { populateBulanFilter(); renderRekap(); showModal('rekapView'); });
+    document.getElementById('showSettingsButton').addEventListener('click', () => { renderLayananEditor(); showModal('settingsView'); });
+    document.getElementById('simpanButton').addEventListener('click', simpanOrder);
+    document.getElementById('tambahLayananButton').addEventListener('click', () => tambahLayananCard());
+    document.getElementById('batalEditButton').addEventListener('click', resetForm);
+    document.getElementById('closeDbButton').addEventListener('click', () => hideModal('databaseView'));
+    document.getElementById('closeSettingsButton').addEventListener('click', () => hideModal('settingsView'));
+    document.getElementById('closeRekapButton').addEventListener('click', () => hideModal('rekapView'));
+    document.getElementById('closePremiumModal').addEventListener('click', () => hideModal('premiumModal'));
+    document.getElementById('confirmBtnYes').addEventListener('click', () => resolveConfirm(true));
+    document.getElementById('confirmBtnNo').addEventListener('click', () => resolveConfirm(false));
+    document.getElementById('saveSettingsButton').addEventListener('click', saveConfig);
+    document.getElementById('tambahLayananEditor').addEventListener('click', () => tambahLayananEditorRow());
+    document.getElementById('backupButton').addEventListener('click', backupData);
+    document.getElementById('restoreButton').addEventListener('click', triggerRestore);
+    document.getElementById('restoreFile').addEventListener('change', restoreData);
+    document.getElementById('activateLicenseButton').addEventListener('click', activateLicense);
+    document.getElementById('extendLicenseButton').addEventListener('click', requestLicenseExtension);
+    document.getElementById('formTransaksi').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('transaksiId').value;
+        const tipe = document.querySelector('input[name="transaksiTipe"]:checked').value;
+        const trans = { id: id || `tx_${Date.now()}`, tanggal: document.getElementById('transaksiTanggal').value || new Date().toISOString().slice(0,10), keterangan: document.getElementById('transaksiKeterangan').value, jumlah: parseFloat(document.getElementById('transaksiJumlah').value) || 0, tipe: tipe, kategori: tipe === 'pengeluaran' ? document.getElementById('transaksiKategori').value : null };
+        if (!trans.keterangan || !trans.jumlah) return showToast('Keterangan dan Jumlah wajib diisi!', 'error');
+        let allTx = getTransaksi();
+        if (id) { const index = allTx.findIndex(t => t.id === id); if (index > -1) allTx[index] = trans; } 
+        else { allTx.push(trans); }
+        saveTransaksi(allTx);
+        showToast(`Transaksi berhasil ${id ? 'diperbarui' : 'disimpan'}!`, 'success');
+        resetFormTransaksi(); populateBulanFilter(); renderRekap();
+    });
+    document.getElementById('batalEditTransaksi').addEventListener('click', resetFormTransaksi);
+    document.getElementById('rekapFilterBulan').addEventListener('change', renderRekap);
+    document.getElementById('backToCustomerList').addEventListener('click', backToCustomerList);
+    ['iNamaPelanggan', 'iNoHp', 'iTanggalMasuk', 'iTanggalSelesai', 'iDiskon', 'iExpress'].forEach(id => { document.getElementById(id)?.addEventListener('input', renderStruk); });
+    document.getElementById('listLayanan').addEventListener('input', e => { if (e.target.matches('.qty,.harga')) renderStruk(); });
+    document.getElementById('listLayanan').addEventListener('change', e => { if (e.target.matches('.layanan')) { const parent = e.target.closest('.layanan-card'), val = e.target.value; if (layananList[val]) { parent.querySelector('.satuan').value = layananList[val].satuan; parent.querySelector('.harga').value = formatRupiah(layananList[val].harga); } renderStruk(); } });
+    document.getElementById('listLayanan').addEventListener('click', e => { const delBtn = e.target.closest('.delete-layanan'); if (delBtn) { delBtn.closest('.layanan-card').remove(); renderStruk(); } });
+    document.getElementById('searchCustomer').addEventListener('input', e => renderCustomerList(e.target.value));
+    document.querySelectorAll('input[name="transaksiTipe"]').forEach(radio => radio.addEventListener('change', e => { document.getElementById('transaksiKategori').classList.toggle('hidden', e.target.value !== 'pengeluaran'); }));
+    document.getElementById('cleanupOrdersButton').addEventListener('click', () => showModal('cleanupModal'));
+    document.getElementById('closeCleanupModal').addEventListener('click', () => hideModal('cleanupModal'));
+    document.getElementById('cleanup7DaysButton').addEventListener('click', () => cleanupOrders(7));
+    document.getElementById('cleanupAllButton').addEventListener('click', () => cleanupOrders(0));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadConfig();
+    resetForm();
+    checkBackupStatus();
+    initLicenseSystem();
+    setupEventListeners();
+});
+
+// --- MAIN APP SCRIPT ---
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail: ', err)); }); }
+
+</script>
+
+</body>
+</html>
