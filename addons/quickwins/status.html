@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status Order Laundry</title>
+  <link rel="stylesheet" href="quickwins.css">
+  <script>
+    function decodePayload(hash){
+      try{
+        const raw = hash.replace(/^#/, '').split('&')[0];
+        const json = decodeURIComponent(escape(atob(raw)));
+        return JSON.parse(json);
+      }catch(e){ return null; }
+    }
+    function money(n){ return (n||0).toLocaleString('id-ID'); }
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const data = decodePayload(location.hash);
+      const el = document.getElementById('app');
+      if(!data){ el.innerHTML = '<p>Payload tidak valid.</p>'; return; }
+      const steps = ["Diterima","Cuci","Setrika","Siap","Diambil"];
+      const idx = steps.indexOf(data.status);
+      el.innerHTML = `
+        <h2>Halo, ${data.name||'Pelanggan'} 👋</h2>
+        <p>ID Pesanan: <strong>${data.id}</strong></p>
+        <p>Total: <strong>Rp${money(data.total)}</strong></p>
+        <ol>
+          ${steps.map((s,i)=> `<li style="margin:6px 0">${i<=idx?'✅':'⏳'} ${s}</li>`).join('')}
+        </ol>
+        <p style="color:#64748b">Terakhir diperbarui: ${new Date(data.updatedAt||Date.now()).toLocaleString('id-ID')}</p>
+      `;
+    });
+  </script>
+</head>
+<body>
+  <div id="app" style="font-family: system-ui; padding: 20px; max-width: 560px; margin: auto;"></div>
+</body>
+</html>

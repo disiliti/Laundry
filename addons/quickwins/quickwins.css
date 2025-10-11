@@ -1,0 +1,44 @@
+/* quickwins.css */
+#qw-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  background: #111827;
+  color: #f9fafb;
+  padding: 12px 14px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  width: 320px;
+}
+#qw-panel h3 { margin: 0 0 8px; font-size: 16px; }
+#qw-panel label { font-size: 12px; color: #cbd5e1; }
+#qw-panel input, #qw-panel select, #qw-panel textarea {
+  width: 100%; margin: 6px 0 10px; padding: 8px 10px;
+  border-radius: 10px; border: 1px solid #374151; background: #111827; color: #e5e7eb;
+}
+#qw-panel button {
+  width: 100%; padding: 9px 10px; border-radius: 10px; border: 0; cursor: pointer; margin-top: 6px;
+  background: #10b981; color: #052e1b; font-weight: 600;
+}
+#qw-panel .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#qw-panel .muted { color: #94a3b8; font-size: 12px; margin-top: 6px; }
+#qw-panel .link { color: #60a5fa; text-decoration: underline; cursor: pointer; }
+
+@media print {
+  body.receipt { margin: 0; }
+  .receipt { width: 58mm; }
+  .receipt.w80 { width: 80mm; }
+  .center { text-align: center; }
+  .small { font-size: 12px; }
+  .qr { display: flex; justify-content: center; margin: 8px 0; }
+  .divider { border-top: 1px dashed #000; margin: 6px 0; }
+}
+
+.label {
+  width: 40mm; height: 30mm; padding: 2mm;
+  display: grid; grid-template-columns: 1fr auto; gap: 2mm; align-items: center;
+  border: 1px dashed #999;
+}
+.label .meta { font-size: 11px; }
